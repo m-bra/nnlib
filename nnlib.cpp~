@@ -1,0 +1,35 @@
+#include "nnlib.h"
+
+template <typename T>
+T *talloc(unsigned size)
+{
+	return static_cast<T *>(malloc(sizeof(T) * size));
+}
+
+template <typename T>
+void tfree(T *ptr)
+{
+	free(ptr);
+}
+
+template <typename T>
+T *trealloc(T *ptr, unsigned size)
+{
+	return static_cast<T *>(realloc(ptr, sizeof(T) * size));
+}
+
+struct nn_neuron
+{
+	float activation;
+	float *in_neurons_weights;
+};
+
+void nn_neuron_init(nn_neuron *n, int in_neurons_cnt)
+{
+	n->in_neurons_weights = 
+}
+
+struct nn_network
+{
+	unsigned 
+};

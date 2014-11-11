@@ -1,0 +1,7 @@
+nnlib - Neural Network Library
+
+Just a simple library for Neural Networks based on the tutorial at http://www.ai-junkie.com/ann/evolved/nnt1.html
+
+This library has no dependencies, and can be compiled normally with a C++-Compiler.
+
+Support for CMake coming soon.
