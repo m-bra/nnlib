@@ -1,14 +1,54 @@
+#ifndef NNLIB_HPP_INCLUDED
+#define NNLIB_HPP_INCLUDED
 
 typedef float nn_real;
-typedef struct nn_network nn_network;
-typedef struct nn_network_code nn_network_code;
 
-void nn_network_init(nn_network *network, unsigned layers_cnt, unsigned *neurons_cnt);
-void nn_network_free(nn_network *network);
-void nn_network_setinputs(nn_network *network, nn_real *inputs);
-void nn_network_getoutputs(nn_network *network, nn_real *outputs);
-void nn_network_calc_out(nn_network *network);
-void nn_network_fromcode(nn_network *network, nn_network_code *code);
+struct nn_neuron
+{
+    nn_real out;
 
-void nn_network_code_init(nn_network_code *code, nn_network *network);
-void nn_network_code_free(nn_network_code *code);
+    nn_real treshold;
+    unsigned in_neurons_cnt;
+    nn_real *in_neurons_weights;
+    nn_neuron **in_neurons;
+
+    void init(unsigned in_neurons_cnt);
+    void free();
+    void calc_out();
+};
+
+struct nn_layer
+{
+    unsigned neurons_cnt;
+    nn_layer *base;
+    nn_neuron *neurons;
+
+    void init(unsigned neuron_cnt, nn_layer *base);
+    void free();
+    void calc_out();
+};
+
+struct nn_network
+{
+    unsigned layers_cnt;
+    nn_layer *layers;
+
+    void init(unsigned layers_cnt, unsigned *neurons_cnt);
+    void free();
+    void setinputs(nn_real *inputs);
+    void getoutputs(nn_real *outputs);
+    void calc_out();
+    void fromcode(struct nn_network_code *code);
+    void dump();
+};
+
+struct nn_network_code
+{
+    unsigned values_cnt;
+    nn_real *values;
+
+    void init(nn_network *);
+    void free();
+};
+
+#endif/*NNLIB_HPP_INCLUDED*/

@@ -5,41 +5,29 @@
 #include <iostream>
 #include <cassert>
 
-typedef struct nn_neuron
+void nn_neuron::init(unsigned a_in_neurons_cnt)
 {
-	nn_real out;
-	bool dirty;
-	
-	nn_real treshold;
-	unsigned in_neurons_cnt;
-	nn_real *in_neurons_weights;
-	nn_neuron **in_neurons;
-} nn_neuron;
-
-void nn_neuron_init(nn_neuron *n, unsigned in_neurons_cnt)
-{
-	n->out = 0;
-	n->dirty = true;
-	n->treshold = 0;
-	n->in_neurons_cnt = in_neurons_cnt;
+	out = 0;
+	treshold = 0;
+	in_neurons_cnt = a_in_neurons_cnt;
 	if (in_neurons_cnt)
 	{
-		talloc(n->in_neurons_weights, in_neurons_cnt);
-		talloc(n->in_neurons, in_neurons_cnt);
+		talloc(in_neurons_weights, in_neurons_cnt);
+		talloc(in_neurons, in_neurons_cnt);
 	}
 	else
 	{
-		n->in_neurons_weights = 0;
-		n->in_neurons = 0;
+		in_neurons_weights = 0;
+		in_neurons = 0;
 	}
 }
 
-void nn_neuron_free(nn_neuron *n)
+void nn_neuron::free()
 {
-	if (n->in_neurons_cnt)
+	if (in_neurons_cnt)
 	{
-		tfree(n->in_neurons_weights);
-		tfree(n->in_neurons);
+		tfree(in_neurons_weights);
+		tfree(in_neurons);
 	}
 }
 
@@ -52,151 +40,158 @@ T sigmoid(T x, T p = 1)
 	return 1 / (1 + pow(e, -x/p));
 }
 
-bool nn_neuron_calc_out(nn_neuron *n)
+void nn_neuron::calc_out()
 {
-	if (n->in_neurons_cnt)
+	if (in_neurons_cnt)
 	{
 		nn_real activation = 0;
-		for (int i = 0; i < n->in_neurons_cnt; ++i)
+		for (int i = 0; i < in_neurons_cnt; ++i)
 		{
-			activation+= n->in_neurons[i]->out * n->in_neurons_weights[i];
+			activation+= in_neurons[i]->out * in_neurons_weights[i];
 		}
-		activation-= n->treshold;
-	
+		activation-= treshold;
+
 		// smooth the output
-		n->out = sigmoid(activation);
+		//out = sigmoid(activation);
+		out = activation < 0 ? 0 : 1;
 	}
 }
 
-typedef struct nn_layer
+void nn_layer::init(unsigned a_neuron_cnt, nn_layer *abase)
 {
-	unsigned neurons_cnt;
-	nn_layer *base;
-	nn_neuron *neurons;
-} nn_layer;
+	neurons_cnt = a_neuron_cnt;
+	talloc(neurons, neurons_cnt);
+	base = abase;
 
-void nn_layer_init(nn_layer *l, unsigned neuron_cnt, nn_layer *base)
-{
-	l->neurons_cnt = neuron_cnt;
-	talloc(l->neurons, neuron_cnt);
-	l->base = base;
-	
-	for (int i = 0; i < neuron_cnt; ++i)
+	for (int i = 0; i < neurons_cnt; ++i)
 	{
 		if (base)
 		{
-			nn_neuron_init(&l->neurons[i], base->neurons_cnt);
-			for (int j = 0; j < l->base->neurons_cnt; ++j)
+			neurons[i].init(base->neurons_cnt);
+			neurons[i].treshold = (rand() % 400) / 100. - 2;
+			for (int j = 0; j < base->neurons_cnt; ++j)
 			{
-				l->neurons[i].in_neurons_weights[j] = (rand() % 200) / 100.;
-				l->neurons[i].in_neurons[j] = &base->neurons[j];
+				neurons[i].in_neurons_weights[j] = (rand() % 400) / 100. - 2;
+				neurons[i].in_neurons[j] = &base->neurons[j];
 			}
 		}
 		else
-			nn_neuron_init(&l->neurons[i], 0);
+			neurons[i].init(0);
 	}
 }
 
-void nn_layer_free(nn_layer *l)
+void nn_layer::free()
 {
-	for (int i = 0; i < l->neurons_cnt; ++i)
+	for (int i = 0; i < neurons_cnt; ++i)
 	{
-		nn_neuron_free(&l->neurons[i]);
+		neurons[i].free();
 	}
-	tfree(l->neurons);
+	tfree(neurons);
 }
 
-void nn_layer_neurons_calc_out(nn_layer *l)
+void nn_layer::calc_out()
 {
-	for (int i = 0; i < l->neurons_cnt; ++i)
-		nn_neuron_calc_out(&l->neurons[i]);
+	for (int i = 0; i < neurons_cnt; ++i)
+		neurons[i].calc_out();
 }
 
-typedef struct nn_network
+void nn_network::init(unsigned a_layers_cnt, unsigned *a_neurons_cnt)
 {
-	unsigned layers_cnt;
-	nn_layer *layers;
-} nn_network;
-
-void nn_network_init(nn_network *network, unsigned layers_cnt, unsigned *neurons_cnt)
-{
-	network->layers_cnt = layers_cnt;
-	talloc(network->layers, layers_cnt);
-	for (int l = 0; l < network->layers_cnt; ++l)
+	layers_cnt = a_layers_cnt;
+	talloc(layers, layers_cnt);
+	for (int l = 0; l < layers_cnt; ++l)
 		if (l)
-			nn_layer_init(&network->layers[l], neurons_cnt[l], &network->layers[l - 1]);
+			layers[l].init(a_neurons_cnt[l], &layers[l - 1]);
 		else
-			nn_layer_init(&network->layers[l], neurons_cnt[l], 0);
+			layers[l].init(a_neurons_cnt[l], 0);
 }
 
-void nn_network_free(nn_network *network)
+void nn_network::free()
 {
-	for (int l = 0; l < network->layers_cnt; ++l)
-		nn_layer_free(&network->layers[l]);
-	tfree(network->layers);
+	for (int l = 0; l < layers_cnt; ++l)
+		layers[l].free();
+	tfree(layers);
 }
 
-void nn_network_setinputs(nn_network *network, nn_real *inputs)
+void nn_network::setinputs(nn_real *inputs)
 {
-	for (int n = 0; n < network->layers[0].neurons_cnt; ++n)
-		network->layers[0].neurons[n].out = inputs[n];
+	for (int n = 0; n < layers[0].neurons_cnt; ++n)
+		layers[0].neurons[n].out = inputs[n];
 }
 
-void nn_network_getoutputs(nn_network *network, nn_real *outputs)
+void nn_network::getoutputs(nn_real *outputs)
 {
-	int const last_layer = network->layers_cnt - 1;
-	for (int n = 0; n < network->layers[last_layer].neurons_cnt; ++n)
-		outputs[n] = network->layers[last_layer].neurons[n].out;		
+	int const last_layer = layers_cnt - 1;
+	for (int n = 0; n < layers[last_layer].neurons_cnt; ++n)
+		outputs[n] = layers[last_layer].neurons[n].out;
 }
 
-void nn_network_calc_out(nn_network *network)
+void nn_network::calc_out()
 {
-	for (int l = 0; l < network->layers_cnt; ++l)
+	for (int l = 0; l < layers_cnt; ++l)
 		if (l)
-			nn_layer_neurons_calc_out(&network->layers[l]);
+			layers[l].calc_out();
 }
 
-typedef struct nn_network_code
+void nn_network::dump()
 {
-	unsigned values_cnt;
-	nn_real *values;
-} nn_network_code;
+	std::cout << "nn_network_dump (\n";
+	for (int l = 0; l < layers_cnt; ++l)
+	{
+		std::cout << "  layer " << l << " (\n";
+		for (int n = 0; n < layers[l].neurons_cnt; ++n)
+		{
+			std::cout << "    neuron " << n << " (";
+			std::cout << "o" << layers[l].neurons[n].out;
+			if (l > 0)
+			{
+				std::cout << " t" << layers[l].neurons[n].treshold;
+				for (int w = 0; w < layers[l - 1].neurons_cnt; ++w)
+					std::cout << " w" <<
+						layers[l].neurons[n].in_neurons_weights[w];
+			}
+			std::cout << ")\n";
+		}
+		std::cout << ")\n";
+	}
+	std::cout << ")\n";
+}
 
-void nn_network_fromcode(nn_network *network, nn_network_code *code)
+void nn_network::fromcode(nn_network_code *code)
 {
+	unsigned b = 0;
+	for (int l = 1; l < layers_cnt; ++l)
+		for (int n = 0; n < layers[l].neurons_cnt; ++n)
+		{
+			layers[l].neurons[n].treshold = code->values[b++];
+			for (int w = 0; w < layers[l-1].neurons_cnt; ++w)
+				layers[l].neurons[n].in_neurons_weights[w] = code->values[b++];
+		}
+}
+
+void nn_network_code::init(nn_network *network)
+{
+	values_cnt = 0;
+	for (int l = 1; l < network->layers_cnt; ++l)
+		values_cnt+= network->layers[l].neurons_cnt * (1 + network->layers[l - 1].neurons_cnt);
+
+	talloc(values, values_cnt);
 	unsigned b = 0;
 	for (int l = 1; l < network->layers_cnt; ++l)
 		for (int n = 0; n < network->layers[l].neurons_cnt; ++n)
 		{
-			network->layers[l].neurons[n].treshold = code->values[b++];
+			values[b++] = network->layers[l].neurons[n].treshold;
 			for (int w = 0; w < network->layers[l-1].neurons_cnt; ++w)
-				network->layers[l].neurons[n].in_neurons_weights[w] = code->values[b++];
+				values[b++] = network->layers[l].neurons[n].in_neurons_weights[w];
 		}
-}
-
-void nn_network_code_init(nn_network_code *code, nn_network *network)
-{
-	code->values_cnt = 0;
-	for (int l = 1; l < network->layers_cnt; ++l)
-		code->values_cnt+= network->layers[l].neurons_cnt * (1 + network->layers[l - 1].neurons_cnt);
-		
-	talloc(code->values, code->values_cnt);
-	unsigned b = 0;
-	for (int l = 1; l < network->layers_cnt; ++l)
-		for (int n = 0; n < network->layers[l].neurons_cnt; ++n)
-		{
-			code->values[b++] = network->layers[l].neurons[n].treshold;
-			for (int w = 0; w < network->layers[l-1].neurons_cnt; ++w)
-				code->values[b++] = network->layers[l].neurons[n].in_neurons_weights[w];
-		}
-	if (b != code->values_cnt)
+	if (b != values_cnt)
 	{
 		std::cerr << "ERROR: NNLIB: Internal error (" << __FILE__ << "@" << __LINE__ << ")\n";
 		exit(EXIT_FAILURE);
 	}
 }
 
-void nn_network_code_free(nn_network_code *code)
+void nn_network_code::free()
 {
-	tfree(code->values);
+	tfree(values);
 }
