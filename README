@@ -4,6 +4,5 @@ Just a simple library for Neural Networks based on the tutorial at http://www.ai
 
 It is not finished yet and currently just has a few lines of code..It is not finished yet and currently just has a few lines of code...
 
-This library has no dependencies, and can be compiled normally with a C++-Compiler.
-
-Support for CMake coming soon.
+This library currently has no dependencies except for using cmake as build system.
+http://www.cmake.org/download/
