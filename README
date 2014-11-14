@@ -2,7 +2,7 @@ nnlib - Neural Network Library
 
 Just a simple library for Neural Networks based on the tutorial at http://www.ai-junkie.com/ann/evolved/nnt1.html
 
-It is not finished yet and currently just has a few lines of code..It is not finished yet and currently just has a few lines of code...
+Now it is tested, and is usable (may have some sneaky bugs though)
 
 This library currently has no dependencies except for using cmake as build system.
 http://www.cmake.org/download/
