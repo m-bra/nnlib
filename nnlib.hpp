@@ -33,9 +33,11 @@ struct nn_network
     unsigned layers_cnt;
     nn_layer *layers;
 
-    void init(unsigned layers_cnt, unsigned *neurons_cnt);
+    void init(unsigned layers_cnt, unsigned const *neurons_cnt);
     void free();
-    void setinputs(nn_real *inputs);
+    void copy_from(nn_network const *src);
+
+    void setinputs(nn_real const *inputs);
     void getoutputs(nn_real *outputs);
     void calc_out();
     void fromcode(struct nn_network_code *code);

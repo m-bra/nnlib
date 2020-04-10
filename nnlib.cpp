@@ -34,7 +34,7 @@ void nn_neuron::free()
 // the sigmoid function, where p is the inverse steppiness
 // the lower p is, the steppier the function result
 template <typename T>
-T sigmoid(T x, T p = 1)
+T sigmoid(T x, T p = 0.08)
 {
 	T const e = 2.71828182845904523536;
 	return 1 / (1 + pow(e, -x/p));
@@ -52,8 +52,9 @@ void nn_neuron::calc_out()
 		activation-= treshold;
 
 		// smooth the output
-		//out = sigmoid(activation);
-		out = activation < 0 ? 0 : 1;
+		out = sigmoid(activation);
+
+		//out = activation < 0 ? 0 : 1;
 	}
 }
 
@@ -95,7 +96,7 @@ void nn_layer::calc_out()
 		neurons[i].calc_out();
 }
 
-void nn_network::init(unsigned a_layers_cnt, unsigned *a_neurons_cnt)
+void nn_network::init(unsigned a_layers_cnt, unsigned const *a_neurons_cnt)
 {
 	layers_cnt = a_layers_cnt;
 	talloc(layers, layers_cnt);
@@ -106,6 +107,46 @@ void nn_network::init(unsigned a_layers_cnt, unsigned *a_neurons_cnt)
 			layers[l].init(a_neurons_cnt[l], 0);
 }
 
+void nn_network::copy_from(nn_network const *src)
+{
+    layers_cnt = src->layers_cnt;
+    talloc(layers, layers_cnt);
+    for (int l = 0; l < layers_cnt; ++l)
+        if (l)
+        {
+            layers[l].neurons_cnt = src->layers[l].neurons_cnt;
+            layers[l].base = &layers[l - 1];
+            talloc(layers[l].neurons, layers[l].neurons_cnt);
+            for (int n = 0; n < layers[l].neurons_cnt; ++n)
+            {
+                nn_neuron *neuron = layers[l].neurons + n;
+                neuron->treshold = src->layers[l].neurons[n].treshold;
+                neuron->in_neurons_cnt = layers[l - 1].neurons_cnt;
+                talloc(neuron->in_neurons_weights, neuron->in_neurons_cnt);
+                talloc(neuron->in_neurons, neuron->in_neurons_cnt);
+                for (int in = 0; in < layers[l - 1].neurons_cnt; ++in)
+                {
+                    neuron->in_neurons_weights[in] = src->layers[l].neurons[n].in_neurons_weights[in];
+                    neuron->in_neurons[in] = &layers[l - 1].neurons[in];
+                }
+            }
+        }
+        else
+        {
+            layers[l].neurons_cnt = src->layers[l].neurons_cnt;
+            layers[l].base = 0;
+            talloc(layers[l].neurons, layers[l].neurons_cnt);
+            for (int n = 0; n < layers[l].neurons_cnt; ++n)
+            {
+                nn_neuron *neuron = layers[l].neurons + n;
+                neuron->treshold = src->layers[l].neurons[n].treshold;
+                neuron->in_neurons_cnt = 0;
+                neuron->in_neurons_weights = 0;
+                neuron->in_neurons = 0;
+            }
+        }
+}
+
 void nn_network::free()
 {
 	for (int l = 0; l < layers_cnt; ++l)
@@ -113,7 +154,7 @@ void nn_network::free()
 	tfree(layers);
 }
 
-void nn_network::setinputs(nn_real *inputs)
+void nn_network::setinputs(nn_real const *inputs)
 {
 	for (int n = 0; n < layers[0].neurons_cnt; ++n)
 		layers[0].neurons[n].out = inputs[n];
@@ -157,15 +198,21 @@ void nn_network::dump()
 	std::cout << ")\n";
 }
 
+void safe_assign(nn_real *dst, nn_real *src)
+{
+    if (std::isnormal(*src))
+        *dst = *src;
+}
+
 void nn_network::fromcode(nn_network_code *code)
 {
 	unsigned b = 0;
 	for (int l = 1; l < layers_cnt; ++l)
 		for (int n = 0; n < layers[l].neurons_cnt; ++n)
 		{
-			layers[l].neurons[n].treshold = code->values[b++];
+			safe_assign(&layers[l].neurons[n].treshold, &code->values[b++]);
 			for (int w = 0; w < layers[l-1].neurons_cnt; ++w)
-				layers[l].neurons[n].in_neurons_weights[w] = code->values[b++];
+				safe_assign(&layers[l].neurons[n].in_neurons_weights[w], &code->values[b++]);
 		}
 }
 

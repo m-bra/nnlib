@@ -1,1 +1,3 @@
-add_library(NNLIB STATIC nnlib.cpp)
+add_library(nnlib STATIC nnlib.cpp)
+set(NNLIB_INCLUDE_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/. PARENT_SCOPE)
+set(NNLIB_LIBRARIES nnlib PARENT_SCOPE)
